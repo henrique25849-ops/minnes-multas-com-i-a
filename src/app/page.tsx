@@ -19,6 +19,7 @@ import {
   Shield,
   Zap,
   Target,
+  Sparkles,
 } from 'lucide-react';
 import { UploadZone } from '@/components/custom/upload-zone';
 import { MultaAnalysis, UserBadge, Servico } from '@/lib/types';
@@ -29,6 +30,7 @@ export default function Home() {
   const [activeScreen, setActiveScreen] = useState<Screen>('upload');
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState<MultaAnalysis | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [userPoints, setUserPoints] = useState(120);
 
   const badges: UserBadge[] = [
@@ -128,31 +130,56 @@ export default function Home() {
 
   const handleUpload = async (file: File) => {
     setLoading(true);
+    setError(null);
 
     try {
       // Converter para base64
       const reader = new FileReader();
       reader.onload = async (e) => {
-        const base64 = e.target?.result as string;
+        try {
+          const base64 = e.target?.result as string;
 
-        // Enviar para API
-        const response = await fetch('/api/analyze-multa', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageUrl: base64 }),
-        });
+          // Enviar para API
+          const response = await fetch('/api/analyze-multa', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageUrl: base64 }),
+          });
 
-        const data = await response.json();
+          const data = await response.json();
 
-        if (data.success && data.analysis) {
-          setAnalysis(data.analysis);
-          setActiveScreen('analise');
+          if (!response.ok) {
+            throw new Error(data.error || 'Erro ao analisar multa');
+          }
+
+          if (data.success && data.analysis) {
+            setAnalysis(data.analysis);
+            setActiveScreen('analise');
+            setUserPoints((prev) => prev + 10); // Gamificação
+          } else {
+            throw new Error('Análise não retornou dados válidos');
+          }
+        } catch (err) {
+          console.error('Erro na análise:', err);
+          setError(
+            err instanceof Error
+              ? err.message
+              : 'Erro ao processar imagem. Tente novamente.'
+          );
+        } finally {
+          setLoading(false);
         }
       };
+
+      reader.onerror = () => {
+        setError('Erro ao ler arquivo. Tente novamente.');
+        setLoading(false);
+      };
+
       reader.readAsDataURL(file);
     } catch (error) {
       console.error('Erro ao fazer upload:', error);
-    } finally {
+      setError('Erro ao processar arquivo. Tente novamente.');
       setLoading(false);
     }
   };
@@ -211,22 +238,22 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0D0D0D] text-white font-inter">
-      {/* Header */}
-      <header className="border-b border-[#00FF00]/10 bg-[#0D0D0D]/80 backdrop-blur-xl sticky top-0 z-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#0D0D0D] via-[#0D0D0D] to-[#1A1A1A] text-white font-inter">
+      {/* Header com gradiente */}
+      <header className="border-b border-[#00FF00]/20 bg-[#0D0D0D]/95 backdrop-blur-xl sticky top-0 z-50 shadow-lg shadow-[#00FF00]/5">
         <div className="container mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#00FF00]/10 flex items-center justify-center">
-                <Zap className="w-6 h-6 text-[#00FF00]" />
+            <div className="flex items-center gap-3 group cursor-pointer">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00FF00] to-[#00CC00] flex items-center justify-center shadow-lg shadow-[#00FF00]/30 group-hover:shadow-[#00FF00]/50 transition-all duration-300">
+                <Zap className="w-6 h-6 text-[#0D0D0D]" />
               </div>
               <h1 className="text-2xl font-bold font-inter">
                 minnes<span className="text-[#00FF00]">.multas</span>
               </h1>
             </div>
             <div className="flex items-center gap-4">
-              <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full bg-[#1A1A1A] border border-[#00FF00]/20">
-                <Award className="w-5 h-5 text-[#00FF00]" />
+              <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-[#00FF00]/10 to-[#00FF00]/5 border border-[#00FF00]/30 shadow-lg shadow-[#00FF00]/10">
+                <Sparkles className="w-5 h-5 text-[#00FF00]" />
                 <span className="text-sm font-semibold">{userPoints} pts</span>
               </div>
             </div>
@@ -234,8 +261,8 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Navigation */}
-      <nav className="border-b border-[#00FF00]/10 bg-[#0D0D0D]/60 backdrop-blur-lg sticky top-[73px] z-40">
+      {/* Navigation com efeito glass */}
+      <nav className="border-b border-[#00FF00]/10 bg-[#0D0D0D]/80 backdrop-blur-2xl sticky top-[73px] z-40">
         <div className="container mx-auto px-4 sm:px-6">
           <div className="flex gap-2 overflow-x-auto scrollbar-hide py-4">
             {navItems.map((item) => {
@@ -246,8 +273,8 @@ export default function Home() {
                   onClick={() => setActiveScreen(item.id)}
                   className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-medium transition-all duration-300 whitespace-nowrap ${
                     activeScreen === item.id
-                      ? 'bg-[#00FF00] text-[#0D0D0D] shadow-lg shadow-[#00FF00]/20'
-                      : 'bg-[#1A1A1A] text-gray-400 hover:text-white hover:bg-[#1A1A1A]/80 border border-[#00FF00]/10'
+                      ? 'bg-gradient-to-r from-[#00FF00] to-[#00CC00] text-[#0D0D0D] shadow-xl shadow-[#00FF00]/30 scale-105'
+                      : 'bg-[#1A1A1A]/50 text-gray-400 hover:text-white hover:bg-[#1A1A1A] border border-[#00FF00]/10 hover:border-[#00FF00]/30 hover:scale-105'
                   }`}
                 >
                   <Icon className="w-5 h-5" />
@@ -265,35 +292,61 @@ export default function Home() {
         {activeScreen === 'upload' && (
           <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in duration-500">
             <div className="text-center space-y-4">
-              <h2 className="text-3xl sm:text-4xl font-bold font-inter">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#00FF00]/10 border border-[#00FF00]/30 mb-4">
+                <Sparkles className="w-4 h-4 text-[#00FF00]" />
+                <span className="text-sm text-[#00FF00] font-semibold">
+                  Powered by OpenAI GPT-4
+                </span>
+              </div>
+              <h2 className="text-3xl sm:text-5xl font-bold font-inter leading-tight">
                 Analise sua multa com{' '}
-                <span className="text-[#00FF00]">IA</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00FF00] to-[#00CC00]">
+                  Inteligência Artificial
+                </span>
               </h2>
-              <p className="text-gray-400 text-lg">
+              <p className="text-gray-400 text-lg max-w-2xl mx-auto">
                 Faça upload da foto da sua notificação e receba uma análise
-                completa em segundos
+                completa, precisa e instantânea
               </p>
             </div>
 
             <UploadZone onUpload={handleUpload} loading={loading} />
 
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3 animate-in fade-in duration-300">
+                <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-red-400 font-semibold mb-1">
+                    Erro ao processar
+                  </p>
+                  <p className="text-red-300 text-sm">{error}</p>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-[#1A1A1A] border border-[#00FF00]/10 rounded-xl p-6 text-center hover:border-[#00FF00]/30 transition-all duration-300">
-                <Zap className="w-8 h-8 text-[#00FF00] mx-auto mb-3" />
-                <h3 className="font-semibold mb-2">Análise Rápida</h3>
+              <div className="bg-gradient-to-br from-[#1A1A1A] to-[#0D0D0D] border border-[#00FF00]/20 rounded-2xl p-6 text-center hover:border-[#00FF00]/40 hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-[#00FF00]/10">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#00FF00]/20 to-[#00FF00]/10 flex items-center justify-center mx-auto mb-3">
+                  <Zap className="w-6 h-6 text-[#00FF00]" />
+                </div>
+                <h3 className="font-semibold mb-2">Análise Instantânea</h3>
                 <p className="text-sm text-gray-400">
                   Resultados em menos de 10 segundos
                 </p>
               </div>
-              <div className="bg-[#1A1A1A] border border-[#00FF00]/10 rounded-xl p-6 text-center hover:border-[#00FF00]/30 transition-all duration-300">
-                <Shield className="w-8 h-8 text-[#00FF00] mx-auto mb-3" />
+              <div className="bg-gradient-to-br from-[#1A1A1A] to-[#0D0D0D] border border-[#00FF00]/20 rounded-2xl p-6 text-center hover:border-[#00FF00]/40 hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-[#00FF00]/10">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#00FF00]/20 to-[#00FF00]/10 flex items-center justify-center mx-auto mb-3">
+                  <Shield className="w-6 h-6 text-[#00FF00]" />
+                </div>
                 <h3 className="font-semibold mb-2">100% Seguro</h3>
                 <p className="text-sm text-gray-400">
                   Seus dados são criptografados
                 </p>
               </div>
-              <div className="bg-[#1A1A1A] border border-[#00FF00]/10 rounded-xl p-6 text-center hover:border-[#00FF00]/30 transition-all duration-300">
-                <Target className="w-8 h-8 text-[#00FF00] mx-auto mb-3" />
+              <div className="bg-gradient-to-br from-[#1A1A1A] to-[#0D0D0D] border border-[#00FF00]/20 rounded-2xl p-6 text-center hover:border-[#00FF00]/40 hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-[#00FF00]/10">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#00FF00]/20 to-[#00FF00]/10 flex items-center justify-center mx-auto mb-3">
+                  <Target className="w-6 h-6 text-[#00FF00]" />
+                </div>
                 <h3 className="font-semibold mb-2">Precisão IA</h3>
                 <p className="text-sm text-gray-400">
                   Tecnologia OpenAI GPT-4
@@ -311,8 +364,12 @@ export default function Home() {
                 Resultado da Análise
               </h2>
               <button
-                onClick={() => setActiveScreen('upload')}
-                className="px-6 py-3 bg-[#00FF00] text-[#0D0D0D] rounded-xl font-semibold hover:bg-[#00FF00]/90 transition-all duration-300"
+                onClick={() => {
+                  setActiveScreen('upload');
+                  setAnalysis(null);
+                  setError(null);
+                }}
+                className="px-6 py-3 bg-gradient-to-r from-[#00FF00] to-[#00CC00] text-[#0D0D0D] rounded-xl font-semibold hover:shadow-xl hover:shadow-[#00FF00]/30 transition-all duration-300 hover:scale-105"
               >
                 Nova Análise
               </button>
@@ -321,7 +378,7 @@ export default function Home() {
             {analysis ? (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Card Principal */}
-                <div className="lg:col-span-2 bg-[#1A1A1A] border border-[#00FF00]/20 rounded-2xl p-8 space-y-6">
+                <div className="lg:col-span-2 bg-gradient-to-br from-[#1A1A1A] to-[#0D0D0D] border border-[#00FF00]/30 rounded-2xl p-8 space-y-6 shadow-2xl">
                   <div className="flex items-start justify-between">
                     <div>
                       <h3 className="text-2xl font-bold mb-2">
@@ -341,7 +398,7 @@ export default function Home() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-[#0D0D0D] rounded-xl p-4 border border-[#00FF00]/10">
+                    <div className="bg-[#0D0D0D] rounded-xl p-4 border border-[#00FF00]/20 hover:border-[#00FF00]/40 transition-all duration-300">
                       <div className="flex items-center gap-2 mb-2">
                         <DollarSign className="w-5 h-5 text-[#00FF00]" />
                         <span className="text-sm text-gray-400">Valor</span>
@@ -350,7 +407,7 @@ export default function Home() {
                         R$ {analysis.valor.toFixed(2)}
                       </p>
                     </div>
-                    <div className="bg-[#0D0D0D] rounded-xl p-4 border border-[#00FF00]/10">
+                    <div className="bg-[#0D0D0D] rounded-xl p-4 border border-[#00FF00]/20 hover:border-[#00FF00]/40 transition-all duration-300">
                       <div className="flex items-center gap-2 mb-2">
                         <AlertCircle className="w-5 h-5 text-[#00FF00]" />
                         <span className="text-sm text-gray-400">Pontos</span>
@@ -360,21 +417,21 @@ export default function Home() {
                   </div>
 
                   <div className="space-y-4">
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-3 p-3 rounded-xl bg-[#0D0D0D]/50 border border-[#00FF00]/10">
                       <MapPin className="w-5 h-5 text-[#00FF00] mt-1" />
                       <div>
                         <p className="text-sm text-gray-400 mb-1">Local</p>
                         <p className="font-semibold">{analysis.local}</p>
                       </div>
                     </div>
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-3 p-3 rounded-xl bg-[#0D0D0D]/50 border border-[#00FF00]/10">
                       <Calendar className="w-5 h-5 text-[#00FF00] mt-1" />
                       <div>
                         <p className="text-sm text-gray-400 mb-1">Data</p>
                         <p className="font-semibold">{analysis.data}</p>
                       </div>
                     </div>
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-3 p-3 rounded-xl bg-[#0D0D0D]/50 border border-[#00FF00]/10">
                       <Car className="w-5 h-5 text-[#00FF00] mt-1" />
                       <div>
                         <p className="text-sm text-gray-400 mb-1">Veículo</p>
@@ -385,7 +442,7 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="bg-[#0D0D0D] rounded-xl p-4 border border-[#00FF00]/10">
+                  <div className="bg-[#0D0D0D] rounded-xl p-4 border border-[#00FF00]/20">
                     <h4 className="font-semibold mb-2 flex items-center gap-2">
                       <FileSearch className="w-5 h-5 text-[#00FF00]" />
                       Observações
@@ -398,7 +455,7 @@ export default function Home() {
 
                 {/* Sidebar */}
                 <div className="space-y-6">
-                  <div className="bg-[#1A1A1A] border border-[#00FF00]/20 rounded-2xl p-6">
+                  <div className="bg-gradient-to-br from-[#1A1A1A] to-[#0D0D0D] border border-[#00FF00]/30 rounded-2xl p-6 shadow-xl">
                     <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
                       <TrendingUp className="w-5 h-5 text-[#00FF00]" />
                       Estatísticas
@@ -413,9 +470,9 @@ export default function Home() {
                             78%
                           </span>
                         </div>
-                        <div className="w-full bg-[#0D0D0D] rounded-full h-2">
+                        <div className="w-full bg-[#0D0D0D] rounded-full h-2 overflow-hidden">
                           <div
-                            className="bg-[#00FF00] h-2 rounded-full"
+                            className="bg-gradient-to-r from-[#00FF00] to-[#00CC00] h-2 rounded-full transition-all duration-1000"
                             style={{ width: '78%' }}
                           />
                         </div>
@@ -427,9 +484,9 @@ export default function Home() {
                             Média
                           </span>
                         </div>
-                        <div className="w-full bg-[#0D0D0D] rounded-full h-2">
+                        <div className="w-full bg-[#0D0D0D] rounded-full h-2 overflow-hidden">
                           <div
-                            className="bg-yellow-400 h-2 rounded-full"
+                            className="bg-gradient-to-r from-yellow-400 to-orange-400 h-2 rounded-full transition-all duration-1000"
                             style={{ width: '60%' }}
                           />
                         </div>
@@ -437,7 +494,8 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="bg-gradient-to-br from-[#00FF00]/10 to-[#00FF00]/5 border border-[#00FF00]/30 rounded-2xl p-6">
+                  <div className="bg-gradient-to-br from-[#00FF00]/20 via-[#00FF00]/10 to-[#00FF00]/5 border border-[#00FF00]/40 rounded-2xl p-6 shadow-xl shadow-[#00FF00]/10">
+                    <Sparkles className="w-8 h-8 text-[#00FF00] mb-3" />
                     <h3 className="font-bold text-lg mb-3">
                       Recomendação Premium
                     </h3>
@@ -445,7 +503,7 @@ export default function Home() {
                       Baseado na análise, recomendamos nosso serviço de recurso
                       administrativo.
                     </p>
-                    <button className="w-full py-3 bg-[#00FF00] text-[#0D0D0D] rounded-xl font-semibold hover:bg-[#00FF00]/90 transition-all duration-300">
+                    <button className="w-full py-3 bg-gradient-to-r from-[#00FF00] to-[#00CC00] text-[#0D0D0D] rounded-xl font-semibold hover:shadow-xl hover:shadow-[#00FF00]/30 transition-all duration-300 hover:scale-105">
                       Contratar Serviço
                     </button>
                   </div>
@@ -467,7 +525,10 @@ export default function Home() {
           <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
             <div className="text-center space-y-4">
               <h2 className="text-3xl sm:text-4xl font-bold font-inter">
-                Nossos <span className="text-[#00FF00]">Serviços</span>
+                Nossos{' '}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00FF00] to-[#00CC00]">
+                  Serviços
+                </span>
               </h2>
               <p className="text-gray-400 text-lg">
                 Soluções completas para suas necessidades de trânsito
@@ -478,19 +539,19 @@ export default function Home() {
               {servicos.map((servico) => (
                 <div
                   key={servico.id}
-                  className={`bg-[#1A1A1A] rounded-2xl p-8 border transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-[#00FF00]/10 ${
+                  className={`bg-gradient-to-br from-[#1A1A1A] to-[#0D0D0D] rounded-2xl p-8 border transition-all duration-300 hover:scale-105 hover:shadow-2xl relative ${
                     servico.popular
-                      ? 'border-[#00FF00]/50 relative'
-                      : 'border-[#00FF00]/10'
+                      ? 'border-[#00FF00]/50 shadow-xl shadow-[#00FF00]/10'
+                      : 'border-[#00FF00]/20 hover:border-[#00FF00]/40'
                   }`}
                 >
                   {servico.popular && (
-                    <div className="absolute -top-3 right-6 px-4 py-1 bg-[#00FF00] text-[#0D0D0D] rounded-full text-xs font-bold">
+                    <div className="absolute -top-3 right-6 px-4 py-1 bg-gradient-to-r from-[#00FF00] to-[#00CC00] text-[#0D0D0D] rounded-full text-xs font-bold shadow-lg shadow-[#00FF00]/30">
                       POPULAR
                     </div>
                   )}
                   <div className="flex items-start justify-between mb-6">
-                    <div className="w-16 h-16 rounded-2xl bg-[#00FF00]/10 flex items-center justify-center">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#00FF00]/20 to-[#00FF00]/10 flex items-center justify-center shadow-lg">
                       {getServicoIcon(servico.icone)}
                     </div>
                     <div className="text-right">
@@ -502,7 +563,7 @@ export default function Home() {
                   </div>
                   <h3 className="text-xl font-bold mb-3">{servico.titulo}</h3>
                   <p className="text-gray-400 mb-6">{servico.descricao}</p>
-                  <button className="w-full py-3 bg-[#00FF00] text-[#0D0D0D] rounded-xl font-semibold hover:bg-[#00FF00]/90 transition-all duration-300">
+                  <button className="w-full py-3 bg-gradient-to-r from-[#00FF00] to-[#00CC00] text-[#0D0D0D] rounded-xl font-semibold hover:shadow-xl hover:shadow-[#00FF00]/30 transition-all duration-300 hover:scale-105">
                     Contratar Agora
                   </button>
                 </div>
@@ -511,17 +572,17 @@ export default function Home() {
 
             {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-12">
-              <div className="bg-[#1A1A1A] border border-[#00FF00]/10 rounded-2xl p-6 text-center">
+              <div className="bg-gradient-to-br from-[#1A1A1A] to-[#0D0D0D] border border-[#00FF00]/20 rounded-2xl p-6 text-center hover:border-[#00FF00]/40 hover:scale-105 transition-all duration-300 shadow-lg">
                 <CheckCircle className="w-10 h-10 text-[#00FF00] mx-auto mb-3" />
                 <p className="text-3xl font-bold mb-2">2.847</p>
                 <p className="text-gray-400">Multas Analisadas</p>
               </div>
-              <div className="bg-[#1A1A1A] border border-[#00FF00]/10 rounded-2xl p-6 text-center">
+              <div className="bg-gradient-to-br from-[#1A1A1A] to-[#0D0D0D] border border-[#00FF00]/20 rounded-2xl p-6 text-center hover:border-[#00FF00]/40 hover:scale-105 transition-all duration-300 shadow-lg">
                 <Award className="w-10 h-10 text-[#00FF00] mx-auto mb-3" />
                 <p className="text-3xl font-bold mb-2">94%</p>
                 <p className="text-gray-400">Taxa de Sucesso</p>
               </div>
-              <div className="bg-[#1A1A1A] border border-[#00FF00]/10 rounded-2xl p-6 text-center">
+              <div className="bg-gradient-to-br from-[#1A1A1A] to-[#0D0D0D] border border-[#00FF00]/20 rounded-2xl p-6 text-center hover:border-[#00FF00]/40 hover:scale-105 transition-all duration-300 shadow-lg">
                 <Clock className="w-10 h-10 text-[#00FF00] mx-auto mb-3" />
                 <p className="text-3xl font-bold mb-2">24h</p>
                 <p className="text-gray-400">Atendimento Rápido</p>
@@ -536,7 +597,9 @@ export default function Home() {
             <div className="text-center space-y-4">
               <h2 className="text-3xl sm:text-4xl font-bold font-inter">
                 Identificação de{' '}
-                <span className="text-[#00FF00]">Condutor</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00FF00] to-[#00CC00]">
+                  Condutor
+                </span>
               </h2>
               <p className="text-gray-400 text-lg">
                 Indique corretamente quem estava dirigindo no momento da
@@ -544,7 +607,7 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="bg-[#1A1A1A] border border-[#00FF00]/20 rounded-2xl p-8">
+            <div className="bg-gradient-to-br from-[#1A1A1A] to-[#0D0D0D] border border-[#00FF00]/30 rounded-2xl p-8 shadow-2xl">
               <form className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
@@ -554,7 +617,7 @@ export default function Home() {
                     <input
                       type="text"
                       placeholder="Ex: 123456789"
-                      className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#00FF00]/20 rounded-xl focus:border-[#00FF00] focus:outline-none transition-all duration-300"
+                      className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#00FF00]/20 rounded-xl focus:border-[#00FF00] focus:outline-none focus:ring-2 focus:ring-[#00FF00]/20 transition-all duration-300"
                     />
                   </div>
                   <div>
@@ -564,7 +627,7 @@ export default function Home() {
                     <input
                       type="text"
                       placeholder="Ex: ABC-1234"
-                      className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#00FF00]/20 rounded-xl focus:border-[#00FF00] focus:outline-none transition-all duration-300"
+                      className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#00FF00]/20 rounded-xl focus:border-[#00FF00] focus:outline-none focus:ring-2 focus:ring-[#00FF00]/20 transition-all duration-300"
                     />
                   </div>
                 </div>
@@ -579,7 +642,7 @@ export default function Home() {
                       <input
                         type="text"
                         placeholder="Nome do condutor"
-                        className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#00FF00]/20 rounded-xl focus:border-[#00FF00] focus:outline-none transition-all duration-300"
+                        className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#00FF00]/20 rounded-xl focus:border-[#00FF00] focus:outline-none focus:ring-2 focus:ring-[#00FF00]/20 transition-all duration-300"
                       />
                     </div>
                     <div>
@@ -589,7 +652,7 @@ export default function Home() {
                       <input
                         type="text"
                         placeholder="000.000.000-00"
-                        className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#00FF00]/20 rounded-xl focus:border-[#00FF00] focus:outline-none transition-all duration-300"
+                        className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#00FF00]/20 rounded-xl focus:border-[#00FF00] focus:outline-none focus:ring-2 focus:ring-[#00FF00]/20 transition-all duration-300"
                       />
                     </div>
                     <div>
@@ -599,7 +662,7 @@ export default function Home() {
                       <input
                         type="text"
                         placeholder="Número da CNH"
-                        className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#00FF00]/20 rounded-xl focus:border-[#00FF00] focus:outline-none transition-all duration-300"
+                        className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#00FF00]/20 rounded-xl focus:border-[#00FF00] focus:outline-none focus:ring-2 focus:ring-[#00FF00]/20 transition-all duration-300"
                       />
                     </div>
                     <div>
@@ -608,19 +671,17 @@ export default function Home() {
                       </label>
                       <input
                         type="date"
-                        className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#00FF00]/20 rounded-xl focus:border-[#00FF00] focus:outline-none transition-all duration-300"
+                        className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#00FF00]/20 rounded-xl focus:border-[#00FF00] focus:outline-none focus:ring-2 focus:ring-[#00FF00]/20 transition-all duration-300"
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-[#00FF00]/5 border border-[#00FF00]/20 rounded-xl p-4">
+                <div className="bg-[#00FF00]/5 border border-[#00FF00]/30 rounded-xl p-4">
                   <div className="flex items-start gap-3">
                     <AlertCircle className="w-5 h-5 text-[#00FF00] mt-0.5" />
                     <div>
-                      <p className="text-sm font-semibold mb-1">
-                        Importante
-                      </p>
+                      <p className="text-sm font-semibold mb-1">Importante</p>
                       <p className="text-sm text-gray-400">
                         A identificação do condutor deve ser feita em até 30
                         dias após o recebimento da notificação. Dados incorretos
@@ -632,7 +693,7 @@ export default function Home() {
 
                 <button
                   type="submit"
-                  className="w-full py-4 bg-[#00FF00] text-[#0D0D0D] rounded-xl font-bold text-lg hover:bg-[#00FF00]/90 transition-all duration-300"
+                  className="w-full py-4 bg-gradient-to-r from-[#00FF00] to-[#00CC00] text-[#0D0D0D] rounded-xl font-bold text-lg hover:shadow-xl hover:shadow-[#00FF00]/30 transition-all duration-300 hover:scale-105"
                 >
                   Enviar Identificação
                 </button>
@@ -646,7 +707,10 @@ export default function Home() {
           <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
             <div className="text-center space-y-4">
               <h2 className="text-3xl sm:text-4xl font-bold font-inter">
-                Consulta de <span className="text-[#00FF00]">Multas</span>
+                Consulta de{' '}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00FF00] to-[#00CC00]">
+                  Multas
+                </span>
               </h2>
               <p className="text-gray-400 text-lg">
                 Verifique todas as multas do seu veículo
@@ -654,14 +718,14 @@ export default function Home() {
             </div>
 
             {/* Search */}
-            <div className="bg-[#1A1A1A] border border-[#00FF00]/20 rounded-2xl p-6">
+            <div className="bg-gradient-to-br from-[#1A1A1A] to-[#0D0D0D] border border-[#00FF00]/30 rounded-2xl p-6 shadow-xl">
               <div className="flex gap-4">
                 <input
                   type="text"
                   placeholder="Digite a placa do veículo (Ex: ABC-1234)"
-                  className="flex-1 px-6 py-4 bg-[#0D0D0D] border border-[#00FF00]/20 rounded-xl focus:border-[#00FF00] focus:outline-none transition-all duration-300 text-lg"
+                  className="flex-1 px-6 py-4 bg-[#0D0D0D] border border-[#00FF00]/20 rounded-xl focus:border-[#00FF00] focus:outline-none focus:ring-2 focus:ring-[#00FF00]/20 transition-all duration-300 text-lg"
                 />
-                <button className="px-8 py-4 bg-[#00FF00] text-[#0D0D0D] rounded-xl font-bold hover:bg-[#00FF00]/90 transition-all duration-300 flex items-center gap-2">
+                <button className="px-8 py-4 bg-gradient-to-r from-[#00FF00] to-[#00CC00] text-[#0D0D0D] rounded-xl font-bold hover:shadow-xl hover:shadow-[#00FF00]/30 transition-all duration-300 hover:scale-105 flex items-center gap-2">
                   <Search className="w-5 h-5" />
                   Consultar
                 </button>
@@ -670,21 +734,21 @@ export default function Home() {
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <div className="bg-gradient-to-br from-red-500/10 to-red-500/5 border border-red-500/30 rounded-2xl p-6">
+              <div className="bg-gradient-to-br from-red-500/20 via-red-500/10 to-red-500/5 border border-red-500/40 rounded-2xl p-6 hover:scale-105 transition-all duration-300 shadow-xl">
                 <div className="flex items-center justify-between mb-4">
                   <AlertCircle className="w-8 h-8 text-red-400" />
                   <span className="text-3xl font-bold">3</span>
                 </div>
                 <p className="text-gray-400">Multas Pendentes</p>
               </div>
-              <div className="bg-gradient-to-br from-[#00FF00]/10 to-[#00FF00]/5 border border-[#00FF00]/30 rounded-2xl p-6">
+              <div className="bg-gradient-to-br from-[#00FF00]/20 via-[#00FF00]/10 to-[#00FF00]/5 border border-[#00FF00]/40 rounded-2xl p-6 hover:scale-105 transition-all duration-300 shadow-xl">
                 <div className="flex items-center justify-between mb-4">
                   <DollarSign className="w-8 h-8 text-[#00FF00]" />
                   <span className="text-3xl font-bold">R$ 618,86</span>
                 </div>
                 <p className="text-gray-400">Valor Total</p>
               </div>
-              <div className="bg-gradient-to-br from-yellow-500/10 to-yellow-500/5 border border-yellow-500/30 rounded-2xl p-6">
+              <div className="bg-gradient-to-br from-yellow-500/20 via-yellow-500/10 to-yellow-500/5 border border-yellow-500/40 rounded-2xl p-6 hover:scale-105 transition-all duration-300 shadow-xl">
                 <div className="flex items-center justify-between mb-4">
                   <AlertCircle className="w-8 h-8 text-yellow-400" />
                   <span className="text-3xl font-bold">15</span>
@@ -698,7 +762,7 @@ export default function Home() {
               {multasMock.map((multa) => (
                 <div
                   key={multa.id}
-                  className="bg-[#1A1A1A] border border-[#00FF00]/10 rounded-2xl p-6 hover:border-[#00FF00]/30 transition-all duration-300"
+                  className="bg-gradient-to-br from-[#1A1A1A] to-[#0D0D0D] border border-[#00FF00]/20 rounded-2xl p-6 hover:border-[#00FF00]/40 hover:scale-[1.02] transition-all duration-300 shadow-lg"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex-1">
@@ -735,7 +799,7 @@ export default function Home() {
                         </span>
                       </div>
                     </div>
-                    <button className="px-6 py-3 bg-[#00FF00]/10 border border-[#00FF00]/30 text-[#00FF00] rounded-xl font-semibold hover:bg-[#00FF00] hover:text-[#0D0D0D] transition-all duration-300">
+                    <button className="px-6 py-3 bg-[#00FF00]/10 border border-[#00FF00]/30 text-[#00FF00] rounded-xl font-semibold hover:bg-gradient-to-r hover:from-[#00FF00] hover:to-[#00CC00] hover:text-[#0D0D0D] transition-all duration-300 hover:scale-105">
                       Ver Detalhes
                     </button>
                   </div>
@@ -744,7 +808,7 @@ export default function Home() {
             </div>
 
             {/* Gamification */}
-            <div className="bg-gradient-to-br from-[#00FF00]/10 to-[#00FF00]/5 border border-[#00FF00]/30 rounded-2xl p-8">
+            <div className="bg-gradient-to-br from-[#00FF00]/20 via-[#00FF00]/10 to-[#00FF00]/5 border border-[#00FF00]/40 rounded-2xl p-8 shadow-2xl">
               <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
                 <Award className="w-8 h-8 text-[#00FF00]" />
                 Suas Conquistas
@@ -753,16 +817,16 @@ export default function Home() {
                 {badges.map((badge) => (
                   <div
                     key={badge.id}
-                    className={`bg-[#1A1A1A] rounded-xl p-4 border transition-all duration-300 ${
+                    className={`bg-[#1A1A1A] rounded-xl p-4 border transition-all duration-300 hover:scale-105 ${
                       badge.conquistado
-                        ? 'border-[#00FF00]/50'
+                        ? 'border-[#00FF00]/50 shadow-lg shadow-[#00FF00]/10'
                         : 'border-[#00FF00]/10 opacity-60'
                     }`}
                   >
                     <div
                       className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${
                         badge.conquistado
-                          ? 'bg-[#00FF00]/20 text-[#00FF00]'
+                          ? 'bg-gradient-to-br from-[#00FF00]/30 to-[#00FF00]/10 text-[#00FF00]'
                           : 'bg-gray-700 text-gray-500'
                       }`}
                     >
@@ -775,9 +839,9 @@ export default function Home() {
                       {badge.descricao}
                     </p>
                     {!badge.conquistado && badge.progresso && (
-                      <div className="w-full bg-[#0D0D0D] rounded-full h-1.5">
+                      <div className="w-full bg-[#0D0D0D] rounded-full h-1.5 overflow-hidden">
                         <div
-                          className="bg-[#00FF00] h-1.5 rounded-full transition-all duration-300"
+                          className="bg-gradient-to-r from-[#00FF00] to-[#00CC00] h-1.5 rounded-full transition-all duration-1000"
                           style={{ width: `${badge.progresso}%` }}
                         />
                       </div>
@@ -795,21 +859,30 @@ export default function Home() {
         <div className="container mx-auto px-4 sm:px-6 py-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-[#00FF00]/10 flex items-center justify-center">
-                <Zap className="w-5 h-5 text-[#00FF00]" />
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#00FF00] to-[#00CC00] flex items-center justify-center">
+                <Zap className="w-5 h-5 text-[#0D0D0D]" />
               </div>
               <p className="text-gray-400 text-sm">
                 © 2024 minnes.multas - Todos os direitos reservados
               </p>
             </div>
             <div className="flex items-center gap-4 text-sm text-gray-400">
-              <a href="#" className="hover:text-[#00FF00] transition-colors">
+              <a
+                href="#"
+                className="hover:text-[#00FF00] transition-colors duration-300"
+              >
                 Termos
               </a>
-              <a href="#" className="hover:text-[#00FF00] transition-colors">
+              <a
+                href="#"
+                className="hover:text-[#00FF00] transition-colors duration-300"
+              >
                 Privacidade
               </a>
-              <a href="#" className="hover:text-[#00FF00] transition-colors">
+              <a
+                href="#"
+                className="hover:text-[#00FF00] transition-colors duration-300"
+              >
                 Contato
               </a>
             </div>

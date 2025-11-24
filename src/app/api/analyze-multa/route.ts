@@ -16,6 +16,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('🚀 Iniciando análise de multa com OpenAI...');
+
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
@@ -35,11 +37,11 @@ export async function POST(request: NextRequest) {
                 "placa": "placa do veículo",
                 "veiculo": "modelo e marca do veículo",
                 "condutor": "nome do condutor se visível",
-                "observacoes": "observações relevantes",
+                "observacoes": "observações relevantes sobre a multa",
                 "gravidade": "leve, media, grave ou gravissima"
               }
               
-              Se não conseguir identificar algum campo, use valores padrão razoáveis baseados no contexto da imagem.`,
+              Se não conseguir identificar algum campo, use valores padrão razoáveis baseados no contexto da imagem. Seja preciso e detalhado nas observações.`,
             },
             {
               type: 'image_url',
@@ -55,13 +57,27 @@ export async function POST(request: NextRequest) {
     });
 
     const content = response.choices[0].message.content;
-    const analysis = content ? JSON.parse(content) : null;
+    console.log('✅ Análise concluída com sucesso');
+
+    if (!content) {
+      throw new Error('OpenAI não retornou conteúdo');
+    }
+
+    const analysis = JSON.parse(content);
 
     return NextResponse.json({ success: true, analysis });
   } catch (error) {
-    console.error('Erro ao analisar multa:', error);
+    console.error('❌ Erro ao analisar multa:', error);
+
+    // Retornar erro mais detalhado
+    const errorMessage =
+      error instanceof Error ? error.message : 'Erro desconhecido';
+
     return NextResponse.json(
-      { error: 'Erro ao processar análise da multa' },
+      {
+        error: 'Erro ao processar análise da multa',
+        details: errorMessage,
+      },
       { status: 500 }
     );
   }
