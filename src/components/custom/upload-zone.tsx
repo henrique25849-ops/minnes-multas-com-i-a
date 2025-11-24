@@ -12,6 +12,17 @@ export function UploadZone({ onUpload, loading }: UploadZoneProps) {
   const [dragActive, setDragActive] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
 
+  const handleFile = useCallback((file: File) => {
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+      onUpload(file);
+    }
+  }, [onUpload]);
+
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -32,7 +43,7 @@ export function UploadZone({ onUpload, loading }: UploadZoneProps) {
         handleFile(e.dataTransfer.files[0]);
       }
     },
-    [onUpload]
+    [handleFile]
   );
 
   const handleChange = useCallback(
@@ -42,19 +53,8 @@ export function UploadZone({ onUpload, loading }: UploadZoneProps) {
         handleFile(e.target.files[0]);
       }
     },
-    [onUpload]
+    [handleFile]
   );
-
-  const handleFile = (file: File) => {
-    if (file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setPreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-      onUpload(file);
-    }
-  };
 
   const clearPreview = () => {
     setPreview(null);
